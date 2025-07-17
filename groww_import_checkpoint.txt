@@ -1,0 +1,4 @@
+# Checkpoint file for GrowwInstrumentImportService
+# Stores the last successfully imported batch number
+# Do not edit manually unless you want to reset the import progress
+0

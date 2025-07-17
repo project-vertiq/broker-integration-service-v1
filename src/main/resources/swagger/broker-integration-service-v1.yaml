@@ -1,0 +1,279 @@
+openapi: 3.0.1
+info:
+  title: Vertiq Broker Integration Service API
+  version: 1.0.0
+  description: >
+    API documentation for Vertiq’s broker‑integration‑service‑v1.  
+    Phase 1: Upstox integration, with room to add more brokers later.
+servers:
+  - url: http://localhost:8080/broker-integration/v1
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /brokers:
+    get:
+      tags:
+        - Brokers
+      summary: List all supported brokers and the current user's connection status
+      operationId: getBrokerList
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/user-id"
+      responses:
+        "200":
+          description: A list of brokers with connection metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrokerListResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /{brokerId}/connect:
+    get:
+      tags:
+        - Brokers
+      summary: Generate OAuth consent URL for a given broker
+      operationId: getBrokerConsentUrl
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/user-id"
+        - name: brokerId
+          in: path
+          required: true
+          description: Unique broker identifier (e.g. `upstox`)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: URL to which the UI should redirect the user for OAuth consent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentUrlResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /{brokerId}/callback:
+    post:
+      tags:
+        - Brokers
+      summary: Handle broker OAuth callback and exchange code for tokens
+      operationId: handleBrokerCallback
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/user-id"
+        - name: brokerId
+          in: path
+          required: true
+          description: Broker identifier (e.g. `upstox`)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CallbackRequest"
+      responses:
+        "200":
+          description: Broker connected and initial sync scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /{brokerId}/sync:
+    post:
+      tags:
+        - Brokers
+      summary: Trigger an on‑demand sync of holdings & transactions for a broker
+      operationId: syncBrokerData
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/user-id"
+        - name: brokerId
+          in: path
+          required: true
+          description: Broker identifier (e.g. `upstox`)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sync request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /{brokerId}:
+    delete:
+      tags:
+        - Brokers
+      summary: Disconnect a broker and remove its tokens
+      operationId: disconnectBroker
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/user-id"
+        - name: brokerId
+          in: path
+          required: true
+          description: Broker identifier (e.g. `upstox`)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Broker disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    user-id:
+      name: user-id
+      in: header
+      description: The ID of the authenticated user
+      required: true
+      schema:
+        type: string
+
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    BrokerListResponse:
+      type: object
+      properties:
+        brokers:
+          type: array
+          items:
+            $ref: "#/components/schemas/BrokerDetails"
+    BrokerDetails:
+      type: object
+      properties:
+        brokerId:
+          type: string
+          example: upstox
+        brokerName:
+          type: string
+          example: Upstox
+        logoUrl:
+          type: string
+        websiteUrl:
+          type: string
+        isConnected:
+          type: boolean
+        lastSync:
+          type: string
+          format: date-time
+          description: Last successful data sync
+          example: 2025-06-07T14:32:00Z
+        lastSyncStatus:
+          type: boolean
+        expiry:
+          type: string
+          format: date-time
+          description: Last successful data sync
+          example: 2025-06-07T14:32:00Z
+    ConsentUrlResponse:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+          description: URL for browser redirect to broker’s consent screen
+          example: >-
+            https://api.upstox.com/index/dialog/authorize?
+            apiKey=XYZ&
+            redirect_uri=https%3A%2F%2Fyourapp.com%2Fapi%2Fbroker-integration%2Fv1%2Fupstox%2Fcallback&
+            state=abc123
+
+    CallbackRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Authorization code returned by broker
+          example: eyJhbGciOi...
+        state:
+          type: string
+          description: State parameter to mitigate CSRF
+          example: abc123
+      required:
+        - code
+        - state
+
+    GenericResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation completed successfully
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: BadRequest
+        message:
+          type: string
+          example: Invalid request parameters
+        status:
+          type: integer
+          format: int32
+          example: 400
