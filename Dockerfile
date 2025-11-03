@@ -18,5 +18,5 @@ VOLUME /tmp
 
 
 COPY --from=build /app/target/*.jar /broker-integration-service-v1.jar
-ENTRYPOINT ["java","-jar","broker-integration-v1.jar"]
+ENTRYPOINT ["java","-jar","broker-integration-service-v1.jar"]
 EXPOSE 8081
